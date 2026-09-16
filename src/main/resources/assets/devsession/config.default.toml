@@ -10,9 +10,8 @@
 # DevSession can be enabled for each project by setting the devsession.enabled JVM property
 #defaultEnabled = true
 
-# Uncomment this to set a default account for all projects
-# The devsession.account JVM property can be used to set the account for each project
-#defaultAccount = "main"
+# The account used when the devsession.account JVM property is not specified
+defaultAccount = "main"
 
 # How authentication tokens are stored:
 #   auto    - use the operating system credential store when one is available
