@@ -8,6 +8,7 @@ public enum Properties {
     CONFIG_DIR("configDir", null),
     ACCOUNT("account", null),
     TOKEN_STORAGE("tokenStorage", "auto"),
+    TOKEN_CACHE("tokenCache", "all"),
     FORCE_TOKEN_REFRESH("forceTokenRefresh", "false"),
     PROFILE_CACHE_MINUTES("profileCacheMinutes", "360"),
     GRANT_FLOW("microsoft.grantFlow", "browser"),

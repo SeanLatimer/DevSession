@@ -21,6 +21,14 @@ defaultAccount = "main"
 #   file    - always store tokens in microsoft_accounts.json (a warning is logged)
 #tokenStorage = "auto"
 
+# Which tokens are cached between launches:
+#   all     - every token of the login chain, so launches need no network calls
+#             until tokens expire (tokens live in the credential store when one
+#             is available; some large tokens may not fit and are re-derived)
+#   refresh - only the refresh token; the rest of the chain is re-derived on
+#             every launch
+#tokenCache = "all"
+
 # Uncomment this to treat all stored tokens as expired on the next launch,
 # forcing a refresh or a new login
 #forceTokenRefresh = false

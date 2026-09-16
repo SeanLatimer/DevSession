@@ -16,6 +16,7 @@ import java.util.Map;
 public class DevSessionConfig {
 
     private static final String[] TOKEN_STORAGE_MODES = {"auto", "keyring", "file"};
+    private static final String[] TOKEN_CACHE_MODES = {"all", "refresh"};
     private static final String[] GRANT_FLOWS = {"browser", "device-code"};
 
     private final boolean defaultEnabled;
@@ -23,6 +24,7 @@ public class DevSessionConfig {
     private final Map<String, Account> accounts;
     private final File configDir;
     private final String tokenStorage;
+    private final String tokenCache;
     private final boolean forceTokenRefresh;
     private final int profileCacheMinutes;
     private final String grantFlow;
@@ -30,13 +32,14 @@ public class DevSessionConfig {
     private final String clientId;
 
     private DevSessionConfig(boolean defaultEnabled, String defaultAccount, Map<String, Account> accounts, File configDir,
-                             String tokenStorage, boolean forceTokenRefresh, int profileCacheMinutes,
+                             String tokenStorage, String tokenCache, boolean forceTokenRefresh, int profileCacheMinutes,
                              String grantFlow, String deviceCodeProvider, String clientId) {
         this.defaultEnabled = defaultEnabled;
         this.defaultAccount = defaultAccount;
         this.accounts = accounts;
         this.configDir = configDir;
         this.tokenStorage = tokenStorage;
+        this.tokenCache = tokenCache;
         this.forceTokenRefresh = forceTokenRefresh;
         this.profileCacheMinutes = profileCacheMinutes;
         this.grantFlow = grantFlow;
@@ -93,6 +96,11 @@ public class DevSessionConfig {
             throw new RuntimeException("Invalid tokenStorage value '" + tokenStorage + "', valid options are: " + String.join(", ", TOKEN_STORAGE_MODES));
         }
 
+        String tokenCache = resolve(config, Properties.TOKEN_CACHE).toLowerCase(Locale.ROOT);
+        if (!matches(tokenCache, TOKEN_CACHE_MODES)) {
+            throw new RuntimeException("Invalid tokenCache value '" + tokenCache + "', valid options are: " + String.join(", ", TOKEN_CACHE_MODES));
+        }
+
         boolean forceTokenRefresh = Properties.parseBoolean(resolve(config, Properties.FORCE_TOKEN_REFRESH));
 
         int profileCacheMinutes;
@@ -111,7 +119,7 @@ public class DevSessionConfig {
         String clientId = resolveNullable(config, Properties.CLIENT_ID);
 
         return new DevSessionConfig(defaultEnabled, defaultAccount, accounts, configDir,
-            tokenStorage, forceTokenRefresh, profileCacheMinutes, grantFlow, deviceCodeProvider, clientId);
+            tokenStorage, tokenCache, forceTokenRefresh, profileCacheMinutes, grantFlow, deviceCodeProvider, clientId);
     }
 
     private static String resolve(FileConfig config, Properties property) {
@@ -153,6 +161,10 @@ public class DevSessionConfig {
 
     public String getTokenStorage() {
         return tokenStorage;
+    }
+
+    public String getTokenCache() {
+        return tokenCache;
     }
 
     public boolean getForceTokenRefresh() {
