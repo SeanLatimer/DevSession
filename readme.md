@@ -29,8 +29,8 @@ place it in your mods folder and configure it using the configuration section be
 # Configuration
 
 **DevSession defaults to disabled**, in order to be unobtrusive. You must enable DevSession in order for it to log you in.
-Additionally, the configuration file will not be created if DevSession is disabled. You should enable DevSession once
-via the JVM property, so that it creates the configuration file, then you may configure it via the file.
+A default configuration file is created on the first launch of a project using DevSession; edit it to enable DevSession
+permanently, or enable it once via the options below.
 
 DevSession is configured through environment variables, JVM properties and a configuration file,
 in order of priority:
@@ -118,7 +118,7 @@ type = "microsoft"
 When the `devsession.account` property is specified it takes precedence over the
 `defaultAccount` config option.
 
-A default config will be automatically created when DevSession is first enabled.
+A default config will be automatically created on the first launch.
 
 # Authentication flows
 

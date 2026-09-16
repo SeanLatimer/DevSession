@@ -24,13 +24,12 @@ public class DevSession {
     }
 
     public String[] processArguments(String[] args) {
-        DevSessionConfig maybeConfig = DevSessionConfig.load(false);
-        if (!isEnabled(maybeConfig.getDefaultEnabled())) {
+        config = DevSessionConfig.load();
+
+        if (!isEnabled(config.getDefaultEnabled())) {
             logger.info("DevSession disabled, not logging in!");
             return args;
         }
-
-        config = DevSessionConfig.load(true);
 
         SessionData data = login();
 

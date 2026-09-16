@@ -44,7 +44,7 @@ public class DevSessionConfig {
         this.clientId = clientId;
     }
 
-    public static DevSessionConfig load(boolean createDefaultConfig) {
+    public static DevSessionConfig load() {
         String configDirPath = Properties.CONFIG_DIR.getValue();
         if (configDirPath == null) configDirPath = Util.getDefaultConfigDir().getAbsolutePath();
 
@@ -55,12 +55,6 @@ public class DevSessionConfig {
         File configFile = new File(configDir, "config.toml");
 
         if (!configFile.exists()) {
-            if (!createDefaultConfig) {
-                return new DevSessionConfig(false, null, null, configDir,
-                    Properties.TOKEN_STORAGE.getValue(), false,
-                    Integer.parseInt(Properties.PROFILE_CACHE_MINUTES.getValue()),
-                    "browser", "multimc", null);
-            }
             configFile.getParentFile().mkdirs();
 
             try (InputStream is = DevSessionConfig.class.getResourceAsStream("/assets/devsession/config.default.toml")) {
