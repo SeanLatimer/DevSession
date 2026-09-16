@@ -10,7 +10,8 @@ public final class TokenStorages {
     public static TokenStorage select(String mode, Logger logger, FileTokenStorage fallback) {
         switch (mode) {
             case "file":
-                logger.info("Storing authentication credentials on disk (tokenStorage = file)");
+                logger.warn("WARNING: Authentication credentials are being stored on disk instead of in an "
+                    + "OS-protected credential store (tokenStorage = file).");
                 return fallback;
             case "keyring": {
                 KeyringTokenStorage keyring = KeyringTokenStorage.create(logger);

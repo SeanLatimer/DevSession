@@ -19,7 +19,7 @@
 #             (Windows Credential Manager, macOS Keychain, GNOME Keyring/KWallet),
 #             otherwise fall back to microsoft_accounts.json with a warning
 #   keyring - require an operating system credential store, fail without one
-#   file    - always store tokens in microsoft_accounts.json
+#   file    - always store tokens in microsoft_accounts.json (a warning is logged)
 #tokenStorage = "auto"
 
 # Uncomment this to treat all stored tokens as expired on the next launch,
