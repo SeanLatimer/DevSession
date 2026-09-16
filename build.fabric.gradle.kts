@@ -67,12 +67,12 @@ tasks {
         filesMatching("fabric.mod.json") { expand(props) }
 
         val mixinJava = "JAVA_${requiredJava.majorVersion}"
-        filesMatching("mixins.devauth.json") { expand("java" to mixinJava) }
+        filesMatching("mixins.devsession.json") { expand("java" to mixinJava) }
 
         exclude("META-INF/neoforge.mods.toml", "META-INF/mods.toml")
 
-        from(rootProject.file("LICENSE")) { rename { "LICENSE_DevAuth.txt" } }
-        from(rootProject.file("branding/logo128x.png")) { rename { "assets/devauth/logo.png" } }
+        from(rootProject.file("LICENSE")) { rename { "LICENSE_DevSession.txt" } }
+        from(rootProject.file("branding/logo128x.png")) { rename { "assets/devsession/logo.png" } }
     }
 
     withType<AbstractArchiveTask> {

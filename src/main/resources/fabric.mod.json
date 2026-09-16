@@ -6,19 +6,22 @@
   "name": "${name}",
   "description": "Safely authenticate Minecraft accounts in development environments.",
   "authors": [
-    "DJtheRedstoner"
+    "silentsean"
   ],
 
   "license": "MIT",
 
-  "icon": "assets/devauth/logo.png",
+  "icon": "assets/devsession/logo.png",
 
   "environment": "client",
   "mixins": [
-    "mixins.devauth.json"
+    "mixins.devsession.json"
   ],
   "depends": {
     "fabricloader": ">=0.14.21",
     "minecraft": "${minecraft}"
+  },
+  "breaks": {
+    "devauth": "*"
   }
 }

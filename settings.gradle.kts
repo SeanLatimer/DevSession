@@ -38,4 +38,4 @@ stonecutter {
     }
 }
 
-rootProject.name = "DevAuth"
+rootProject.name = "DevSession"

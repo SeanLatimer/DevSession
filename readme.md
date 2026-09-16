@@ -1,84 +1,71 @@
-# DevAuth
+# DevSession
 
-![WakaTime badge](https://wakatime.com/badge/user/a7885461-d6b5-4541-b841-a07642af2cfd/project/d488cdfd-0654-421b-abcb-7478b4256185.svg)
+A fork of [DevAuth](https://github.com/DJtheRedstoner/DevAuth).
 
 Safely authenticate Minecraft accounts in development environments.
 
+**Incompatible with the original DevAuth**: the two cannot be installed together,
+and DevSession keeps its config and tokens in a separate directory
+(`~/.devsession` instead of `~/.devauth`), so existing DevAuth logins do not carry over.
+
 # Minecraft Version Support
 
-| Versions                    | Module     | Supported |
-|-----------------------------|------------|:---------:|
+| Versions                          | Module     | Supported |
+|-----------------------------------|------------|:---------:|
 | 1.20.1, 1.21.1, 26.1.x Fabric     | `fabric`   |     ✅     |
 | 1.20.4, 1.21.1, 26.1.x NeoForge   | `neoforge` |     ✅     |
 
-One jar per Minecraft version is published per loader (e.g. `devauth-fabric-1.2.2+1.21.1.jar`),
-so pick the jar matching your game version. Forge is no longer supported by this fork.
+One jar per Minecraft version is published per loader (e.g.
+`devsession-fabric-1.2.2+1.21.1.jar`), so pick the jar matching your game version.
 
 **Note:** If a version isn't listed above as supported, just try it.
 Additionally, the fabric module may work on other fabric-based loaders (such as legacy-fabric).
 
 # Usage
 
-DevAuth can be used either by placing a jar in your mods folder or adding a
-maven dependency. Details about the two methods follow.
-
-<details>
-<summary>Jar</summary>
-
-Download a DevAuth jar from the [releases](https://github.com/DJtheRedstoner/DevAuth/releases),
+Download a DevSession jar from the [releases](https://github.com/SeanLatimer/DevAuth/releases),
 place it in your mods folder and configure it using the configuration section below.
-
-</details>
-
-<details>
-<summary>Maven Dependency</summary>
-
-Maven distribution is not currently published by this fork — use the release jars above.
-
-</details>
-
-You can now enable and configure DevAuth. See the next section for how to do this.
 
 # Configuration
 
-**DevAuth defaults to disabled**, in order to be unobtrusive. You must enable DevAuth in order for it to log you in.
-Additionally, the configuration file will not be created if DevAuth is disabled. You should enable DevAuth once
+**DevSession defaults to disabled**, in order to be unobtrusive. You must enable DevSession in order for it to log you in.
+Additionally, the configuration file will not be created if DevSession is disabled. You should enable DevSession once
 via the JVM property, so that it creates the configuration file, then you may configure it via the file.
 
-DevAuth is configured through JVM properties and a configuration file.
+DevSession is configured through JVM properties and a configuration file.
 JVM Properties can set be by adding `-D<propertyName>=<value>` to your JVM arguments
-or by using [`System.setProperty`][setProperty] before DevAuth is initialized 
+or by using [`System.setProperty`][setProperty] before DevSession is initialized 
 (Fabric's `preLaunch` entrypoint for example). Additionally, your specific
 toolchain/gradle plugins may have specific ways to configure JVM properties.
 
 ## JVM Properties
 
-|       Property        | Description                    | Default                                          |
-|:---------------------:|:-------------------------------|:-------------------------------------------------|
-|   `devauth.enabled`   | Enables DevAuth                | `false`                                          |
-|  `devauth.configDir`  | Selects the config directory   | [See below](#default-config-directory-locations) |
-|   `devauth.account`   | Select the account to log into | none                                             |
+|        Property         | Description                    | Default                                          |
+|:-----------------------:|:-------------------------------|:-------------------------------------------------|
+|  `devsession.enabled`   | Enables DevSession             | `false`                                          |
+| `devsession.configDir`  | Selects the config directory   | [See below](#default-config-directory-locations) |
+|  `devsession.account`   | Select the account to log into | none                                             |
 
 ## Configuration File
 
-The configuration file is called `config.toml` and is located in your DevAuth config
+The configuration file is called `config.toml` and is located in your DevSession config
 folder.
 
 ### Default config directory locations
 
-|   OS    | Default config directory                                      |
-|:-------:|---------------------------------------------------------------|
-| Windows | `C:\Users\<user>\.devauth`                                    |
-|  MacOS  | `/Users/<user>/.devauth`                                      |
-|  Linux  | `$XDG_CONFIG_HOME/devauth`, defaulting to `~/.config/devauth` |
+|   OS    | Default config directory                                        |
+|:-------:|-----------------------------------------------------------------|
+| Windows | `C:\Users\<user>\.devsession`                                   |
+|  MacOS  | `/Users/<user>/.devsession`                                     |
+|  Linux  | `$XDG_CONFIG_HOME/devsession`, defaulting to `~/.config/devsession` |
 
 ### Config file format
 
 ```toml
-# Choose if DevAuth should be enabled default. Overriden by the devauth.enabled property.
+# Choose if DevSession should be enabled default. Overriden by the devsession.enabled property.
 defaultEnabled = true
 
-# Choose which account to use when devauth.account property is not specified
+# Choose which account to use when devsession.account property is not specified
 defaultAccount = "main"
 
 # A Microsoft account
@@ -86,14 +73,14 @@ defaultAccount = "main"
 [accounts.main]
 type = "microsoft"
 
-# A second account, which can be selected by changing defaultAccount above or using the devauth.account property
+# A second account, which can be selected by changing defaultAccount above or using the devsession.account property
 [accounts.alt]
 type = "microsoft"
 ```
-When the `devauth.account` property is specified it takes precedence over the
+When the `devsession.account` property is specified it takes precedence over the
 `defaultAccount` config option.
 
-A default config will be automatically created when DevAuth is first enabled.
+A default config will be automatically created when DevSession is first enabled.
 
 # How it works
 
@@ -102,20 +89,17 @@ link to open in a browser to complete OAuth, after that the token will be stored
 in a file called `microsoft_accounts.json` in your config directory. Future logins
 will use and refresh the stored tokens as necessary. You will be prompted to go through
 OAuth again once your refresh token expires (most likely to occur after a long period
-without using DevAuth) or is revoked.
+without using DevSession) or is revoked.
 
 # Security
 
-DevAuth stores all credentials locally on your machine. The Microsoft account tokens are stored in
-`microsoft_accounts.json` inside the DevAuth configuration directory. The contents of this file are not
-encrypted, so do not share it or open it when it may be seen. If you want to revoke DevAuth's permissions
-or believe this file may have been compromised, DevAuth's permissions can be revoked [here][manageConsent].
+DevSession stores all credentials locally on your machine. The Microsoft account tokens are stored in
+`microsoft_accounts.json` inside the DevSession configuration directory. The contents of this file are not
+encrypted, so do not share it or open it when it may be seen. If you want to revoke DevSession's permissions
+or believe this file may be compromised, DevSession's permissions can be revoked [here][manageConsent].
 Note that this does **not** immediately revoke all access tokens, due to design decisions by Microsoft.
 See [here][tokenLifetimes] for more information.
 
-# Discord
-[<img src="https://inv.wtf/widget/djl" width="500" alt="Discord Widget"/>](https://inv.wtf/djl)
-
-[setProperty]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/System.html#setProperty(java.lang.String,java.lang.String)
+[setProperty]: https://docs.oracle.com/en-us/java/javase/21/docs/api/java.base/java/lang/System.html#setProperty(java.lang.String,java.lang.String)
 [manageConsent]: https://account.live.com/consent/Manage
 [tokenLifetimes]: https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes#access-tokens

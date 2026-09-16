@@ -1,5 +1,5 @@
-mod.id = "devauth"
-mod.name = "DevAuth"
+mod.id = "devsession"
+mod.name = "DevSession"
 mod.version = "1.2.2"
 
 # Mod compatibility range in fabric.mod.json / neoforge.mods.toml

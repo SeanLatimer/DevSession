@@ -1,0 +1,22 @@
+# This is a toml file.
+# Lines starting with '#' are comments, which are ignored
+# You can learn more about toml here: https://learnxinyminutes.com/docs/toml/
+
+# Uncomment this to make DevSession active by default when added to a project
+# DevSession can be enabled for each project by setting the devsession.enabled JVM property
+#defaultEnabled = true
+
+# Uncomment this to set a default account for all projects
+# The devsession.account JVM property can be used to set the account for each project
+#defaultAccount = "main"
+
+# A Microsoft account
+# You do not need to specify your email or password in this config, since
+# OAuth2 is used for authentication.
+[accounts.main]
+type = "microsoft"
+
+# A second Microsoft account, which can be selected by setting defaultAccount above
+# or using the devsession.account JVM property
+[accounts.alt]
+type = "microsoft"

@@ -1,0 +1,8 @@
+{
+  "minVersion": "0.8",
+  "compatibilityLevel": "${java}",
+  "package": "dev.silentsean.mod.devsession.mixin",
+  "client": [
+    "MainMixin"
+  ]
+}

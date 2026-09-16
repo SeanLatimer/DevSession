@@ -6,9 +6,22 @@ license = "MIT"
 modId = "${id}"
 version = "${version}"
 displayName = "${name}"
-authors = "DJtheRedstoner"
+authors = "silentsean"
 description = "Safely authenticate Minecraft accounts in development environments."
-logoFile = "assets/devauth/logo.png"
+logoFile = "assets/devsession/logo.png"
 
 [[mixins]]
-config = "mixins.devauth.json"
+config = "mixins.devsession.json"
+
+[[dependencies.${id}]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft}"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.${id}]]
+modId = "devauth"
+type = "incompatible"
+ordering = "AFTER"
+side = "BOTH"

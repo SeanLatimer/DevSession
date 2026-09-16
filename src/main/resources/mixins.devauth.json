@@ -1,8 +1,0 @@
-{
-  "minVersion": "0.8",
-  "compatibilityLevel": "${java}",
-  "package": "me.djtheredstoner.devauth.mixin",
-  "client": [
-    "MainMixin"
-  ]
-}
