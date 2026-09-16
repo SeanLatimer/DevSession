@@ -32,19 +32,33 @@ place it in your mods folder and configure it using the configuration section be
 Additionally, the configuration file will not be created if DevSession is disabled. You should enable DevSession once
 via the JVM property, so that it creates the configuration file, then you may configure it via the file.
 
-DevSession is configured through JVM properties and a configuration file.
-JVM Properties can set be by adding `-D<propertyName>=<value>` to your JVM arguments
-or by using [`System.setProperty`][setProperty] before DevSession is initialized 
-(Fabric's `preLaunch` entrypoint for example). Additionally, your specific
-toolchain/gradle plugins may have specific ways to configure JVM properties.
+DevSession is configured through environment variables, JVM properties and a configuration file,
+in order of priority:
 
-## JVM Properties
+1. Environment variables, prefixed with `DEVSESSION_` (e.g. `DEVSESSION_ACCOUNT`),
+   `UPPERCASE` with `_` instead of `.` or camelCase
+2. JVM properties, prefixed with `devsession.` (e.g. `devsession.account`),
+   which can be set by adding `-D<propertyName>=<value>` to your JVM arguments
+   or by using [`System.setProperty`][setProperty] before DevSession is initialized 
+   (Fabric's `preLaunch` entrypoint for example). Additionally, your specific
+   toolchain/gradle plugins may have specific ways to configure JVM properties.
+3. The configuration file
 
-|        Property         | Description                    | Default                                          |
-|:-----------------------:|:-------------------------------|:-------------------------------------------------|
-|  `devsession.enabled`   | Enables DevSession             | `false`                                          |
-| `devsession.configDir`  | Selects the config directory   | [See below](#default-config-directory-locations) |
-|  `devsession.account`   | Select the account to log into | none                                             |
+## Options
+
+Every option below can be set through all three layers.
+
+|             Option             | Description                                                             | Default      |
+|:------------------------------:|:------------------------------------------------------------------------|:-------------|
+|        `devsession.enabled`        | Enables DevSession                                                      | `false`      |
+|       `devsession.configDir`       | Selects the config directory (environment variable and JVM property only) | [See below](#default-config-directory-locations) |
+|         `devsession.account`       | Select the account to log into                                          | none         |
+|       `devsession.tokenStorage`    | How tokens are stored: `auto`, `keyring` or `file` ([see security](#security)) | `auto`   |
+|    `devsession.forceTokenRefresh`  | Treat all stored tokens as expired and refresh them on the next launch  | `false`      |
+|   `devsession.profileCacheMinutes` | How long cached profile information (uuid and name) stays valid, in minutes | `360`    |
+|  `devsession.microsoft.grantFlow`  | Authentication flow: `browser` or `device-code` ([see below](#authentication-flows)) | `browser` |
+| `devsession.microsoft.deviceCodeProvider` | OAuth client used for the device-code flow: `multimc`, `devlogin` or `prism` | `multimc` |
+|     `devsession.microsoft.clientId` | Override the OAuth client id (advanced)                                 | none         |
 
 ## Configuration File
 
@@ -56,7 +70,7 @@ folder.
 |   OS    | Default config directory                                        |
 |:-------:|-----------------------------------------------------------------|
 | Windows | `C:\Users\<user>\.devsession`                                   |
-|  MacOS  | `/Users/<user>/.devsession`                                     |
+|  MacOS  | `/Users/<user>/​.devsession`                                     |
 |  Linux  | `$XDG_CONFIG_HOME/devsession`, defaulting to `~/.config/devsession` |
 
 ### Config file format
@@ -67,6 +81,30 @@ defaultEnabled = true
 
 # Choose which account to use when devsession.account property is not specified
 defaultAccount = "main"
+
+# How authentication tokens are stored:
+#   auto    - use the operating system credential store when one is available
+#             (Windows Credential Manager, macOS Keychain, GNOME Keyring/KWallet),
+#             otherwise fall back to microsoft_accounts.json with a warning
+#   keyring - require an operating system credential store, fail without one
+#   file    - always store tokens in microsoft_accounts.json
+tokenStorage = "auto"
+
+# Treat all stored tokens as expired on the next launch
+forceTokenRefresh = false
+
+# How long cached profile information stays valid, in minutes
+profileCacheMinutes = 360
+
+[microsoft]
+# How to authenticate with Microsoft: "browser" or "device-code"
+grantFlow = "browser"
+
+# Which approved OAuth client is used when grantFlow is "device-code"
+deviceCodeProvider = "multimc"
+
+# Override the OAuth client id (advanced)
+#clientId = "00000000-0000-0000-0000-000000000000"
 
 # A Microsoft account
 # You do not need to put any credentials in the configuration file, as OAuth is used to sign in
@@ -82,23 +120,50 @@ When the `devsession.account` property is specified it takes precedence over the
 
 A default config will be automatically created when DevSession is first enabled.
 
-# How it works
+# Authentication flows
+
+## Browser flow (default)
 
 When logging in with a microsoft account for the first time, you will be given a
-link to open in a browser to complete OAuth, after that the token will be stored
-in a file called `microsoft_accounts.json` in your config directory. Future logins
-will use and refresh the stored tokens as necessary. You will be prompted to go through
-OAuth again once your refresh token expires (most likely to occur after a long period
-without using DevSession) or is revoked.
+link to open in a browser to complete OAuth, after that the token will be stored.
+Future logins will use and refresh the stored tokens as necessary. You will be prompted
+to go through OAuth again once your refresh token expires (most likely to occur after a
+long period without using DevSession) or is revoked.
+
+## Device-code flow
+
+Set `microsoft.grantFlow = "device-code"` (or `DEVSESSION_MICROSOFT_GRANT_FLOW=device-code`) to log in
+without a locally hosted redirect. DevSession prints a code and a link
+(`https://www.microsoft.com/link`); open it on any device, enter the code and approve.
+This is useful for remote/headless development environments.
+
+Because Microsoft requires an approved OAuth client for Minecraft sign-in, this flow
+reuses the public client IDs of well-known open-source launchers (`multimc`, `devlogin`
+or `prism`), which can be revoked or changed by their owners. A custom client id can be
+set with `microsoft.clientId`.
 
 # Security
 
-DevSession stores all credentials locally on your machine. The Microsoft account tokens are stored in
-`microsoft_accounts.json` inside the DevSession configuration directory. The contents of this file are not
-encrypted, so do not share it or open it when it may be seen. If you want to revoke DevSession's permissions
-or believe this file may be compromised, DevSession's permissions can be revoked [here][manageConsent].
-Note that this does **not** immediately revoke all access tokens, due to design decisions by Microsoft.
-See [here][tokenLifetimes] for more information.
+DevSession stores reusable Microsoft account credentials (the OAuth access and refresh
+tokens) in your **operating system credential store** when one is available:
+Windows Credential Manager, macOS Keychain, GNOME Keyring or KWallet.
+Short-lived session tokens and cached profile information stay in
+`microsoft_accounts.json` in plain text.
+
+If no supported credential store is available (headless Linux servers, containers, CI),
+DevSession falls back to storing the OAuth tokens in `microsoft_accounts.json` and
+prints a prominent warning on launch. This fallback can be controlled with
+`tokenStorage = "keyring"` (fail instead of falling back) or `tokenStorage = "file"`
+(always use the file). Existing file-based credentials are migrated into the credential
+store automatically on the first launch after an upgrade.
+
+Note that no storage here is bulletproof: in a development environment the game runs
+with a standard JVM that is not packaged or sandboxed, so a credential store mainly
+protects against the tokens sitting in an easily copied plain text file, not against
+malware running in your user session. If you believe your tokens are compromised,
+DevSession's permissions can be revoked [here][manageConsent].
+Note that this does **not** immediately revoke all access tokens, due to design
+decisions by Microsoft. See [here][tokenLifetimes] for more information.
 
 # Credits
 
@@ -108,6 +173,14 @@ All credit for the original idea, design, and implementation belongs to
 maintain the concept on newer Minecraft versions under a different name.
 The original MIT license and copyright notice are preserved in
 [LICENSE](LICENSE) and in every built jar.
+
+The device-code flow reuses the public OAuth client IDs published by
+[MultiMC](https://github.com/MultiMC/Launcher), [DevLogin](https://github.com/covers1624/DevLogin)
+and [Prism Launcher](https://github.com/PrismLauncher/PrismLauncher).
+
+OS credential store access uses the BSD-licensed
+[java-keyring](https://github.com/javakeyring/java-keyring) library and its MIT/BSD/Apache-licensed
+dependencies; all are bundled unmodified in the published jars.
 
 [setProperty]: https://docs.oracle.com/en-us/java/javase/21/docs/api/java.base/java/lang/System.html#setProperty(java.lang.String,java.lang.String)
 [manageConsent]: https://account.live.com/consent/Manage
