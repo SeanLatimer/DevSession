@@ -1,7 +1,8 @@
 package dev.silentsean.mod.devsession.common.auth.microsoft.storage;
 
 import com.google.gson.JsonObject;
-import dev.silentsean.mod.devsession.common.auth.microsoft.token.OAuthToken;
+import dev.silentsean.mod.devsession.common.auth.microsoft.token.Token;
+import dev.silentsean.mod.devsession.common.auth.microsoft.token.TokenKey;
 import dev.silentsean.mod.devsession.common.util.Util;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
@@ -23,30 +24,30 @@ public class FileTokenStorage implements TokenStorage {
     }
 
     @Override
-    public OAuthToken loadOAuthToken(String account) {
+    public Token loadToken(String account, TokenKey<?> key) {
         JsonObject entry = readAccountEntry(account);
-        if (entry == null || !entry.has("oauth")) return null;
+        if (entry == null || !entry.has(key.getName())) return null;
         try {
-            return Util.gson.fromJson(entry.get("oauth"), OAuthToken.class);
+            return Util.gson.fromJson(entry.get(key.getName()), key.getClazz());
         } catch (Exception e) {
-            logger.error("Failed to parse the OAuth token for account '" + account + "' in microsoft_accounts.json", e);
+            logger.error("Failed to parse the " + key.getName() + " token for account '" + account + "' in microsoft_accounts.json", e);
             return null;
         }
     }
 
     @Override
-    public void storeOAuthToken(String account, OAuthToken token) {
+    public void storeToken(String account, TokenKey<?> key, Token token) {
         JsonObject entry = readAccountEntry(account);
         if (entry == null) entry = new JsonObject();
-        entry.add("oauth", Util.gson.toJsonTree(token));
+        entry.add(key.getName(), Util.gson.toJsonTree(token));
         writeAccountEntry(account, entry);
     }
 
     @Override
-    public void deleteOAuthToken(String account) {
+    public void deleteToken(String account, TokenKey<?> key) {
         JsonObject entry = readAccountEntry(account);
-        if (entry == null || !entry.has("oauth")) return;
-        entry.remove("oauth");
+        if (entry == null || !entry.has(key.getName())) return;
+        entry.remove(key.getName());
         writeAccountEntry(account, entry);
     }
 

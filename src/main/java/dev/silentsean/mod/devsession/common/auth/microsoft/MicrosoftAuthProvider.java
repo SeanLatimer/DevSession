@@ -11,6 +11,7 @@ import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.DeviceCodeClien
 import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.DeviceCodeOAuthProvider;
 import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.OAuthProvider;
 import dev.silentsean.mod.devsession.common.auth.microsoft.storage.FileTokenStorage;
+import dev.silentsean.mod.devsession.common.auth.microsoft.storage.KeyringTokenStorage;
 import dev.silentsean.mod.devsession.common.auth.microsoft.storage.TokenStorage;
 import dev.silentsean.mod.devsession.common.auth.microsoft.storage.TokenStorages;
 import dev.silentsean.mod.devsession.common.auth.microsoft.token.OAuthToken;
@@ -57,6 +58,7 @@ public class MicrosoftAuthProvider implements IAuthProvider {
     private final FileTokenStorage fileStorage;
     private final TokenStorage secretStorage;
     private final boolean forceTokenRefresh;
+    private final boolean tokenCacheRefreshOnly;
     private final int profileCacheMinutes;
 
     private final Map<TokenKey<?>, Supplier<? extends Token>> tokenRegistry = new LinkedHashMap<>();
@@ -69,6 +71,7 @@ public class MicrosoftAuthProvider implements IAuthProvider {
         DevSessionConfig config = DevSession.getConfig();
         this.oAuthProvider = createOAuthProvider(config);
         this.forceTokenRefresh = config.getForceTokenRefresh();
+        this.tokenCacheRefreshOnly = "refresh".equals(config.getTokenCache());
         this.profileCacheMinutes = config.getProfileCacheMinutes();
         this.fileStorage = new FileTokenStorage(config.getConfigDir());
         this.secretStorage = TokenStorages.select(config.getTokenStorage(), logger, this.fileStorage);
@@ -209,58 +212,72 @@ public class MicrosoftAuthProvider implements IAuthProvider {
 
     private void readStoredTokens(String account) {
         JsonObject entry = fileStorage.readAccountEntry(account);
-        boolean loadedStoredOAuth = false;
+        if (entry != null && entry.has("profileCache")) {
+            profileCache = entry.getAsJsonObject("profileCache");
+        }
 
-        if (entry != null) {
-            for (TokenKey<?> tokenKey : tokenRegistry.keySet()) {
-                if (tokenKey == TokenKey.OAUTH_TOKEN) continue;
-                if (entry.has(tokenKey.getName())) {
-                    Token token = Util.gson.fromJson(entry.get(tokenKey.getName()), tokenKey.getClazz());
-                    tokenStore.put(tokenKey, token);
-                }
-            }
+        boolean storedOAuthFound = false;
 
-            if (entry.has("profileCache")) {
-                profileCache = entry.getAsJsonObject("profileCache");
-            }
-
-            if (secretStorage.isNative() && entry.has("oauth")) {
-                OAuthToken migrated = migrateOAuthToken(account, entry);
-                if (migrated != null) {
-                    tokenStore.put(TokenKey.OAUTH_TOKEN, migrated);
-                    loadedStoredOAuth = true;
-                }
+        if (secretStorage.isNative() && entry != null && entry.has(TokenKey.OAUTH_TOKEN.getName())) {
+            OAuthToken migrated = migrateOAuthToken(account, entry);
+            if (migrated != null) {
+                tokenStore.put(TokenKey.OAUTH_TOKEN, migrated);
+                storedOAuthFound = true;
             }
         }
 
-        if (!loadedStoredOAuth && !forceTokenRefresh) {
+        for (TokenKey<?> key : tokenRegistry.keySet()) {
+            if (key != TokenKey.OAUTH_TOKEN && tokenCacheRefreshOnly) continue;
+            if (tokenStore.containsKey(key)) continue;
             try {
-                OAuthToken stored = secretStorage.loadOAuthToken(account);
-                if (stored != null) {
-                    tokenStore.put(TokenKey.OAUTH_TOKEN, stored);
-                    loadedStoredOAuth = true;
+                Token token = secretStorage.loadToken(account, key);
+                if (token != null) {
+                    tokenStore.put(key, token);
+                    if (key == TokenKey.OAUTH_TOKEN) storedOAuthFound = true;
                 }
             } catch (Exception e) {
-                logger.error("Failed to read the OAuth token from " + secretStorage.describe() + ", a new login will be required", e);
+                logger.error("Failed to read the " + key.getName() + " token from " + secretStorage.describe(), e);
             }
         }
 
-        if (forceTokenRefresh && loadedStoredOAuth) {
+        if (!storedOAuthFound && !forceTokenRefresh) {
+            recoverRefreshToken(account);
+        }
+
+        if (forceTokenRefresh && storedOAuthFound) {
             logger.info("forceTokenRefresh is enabled, treating all stored tokens as expired");
         }
     }
 
     private OAuthToken migrateOAuthToken(String account, JsonObject entry) {
         try {
-            OAuthToken legacy = Util.gson.fromJson(entry.get("oauth"), OAuthToken.class);
-            secretStorage.storeOAuthToken(account, legacy);
-            entry.remove("oauth");
+            OAuthToken legacy = Util.gson.fromJson(entry.get(TokenKey.OAUTH_TOKEN.getName()), OAuthToken.class);
+            secretStorage.storeToken(account, TokenKey.OAUTH_TOKEN, legacy);
+            entry.remove(TokenKey.OAUTH_TOKEN.getName());
             fileStorage.writeAccountEntry(account, entry);
-            logger.info("Migrated the OAuth token for account '" + account + "' from microsoft_accounts.json into " + secretStorage.describe());
+            logger.info("Migrated the OAuth refresh token for account '" + account + "' from microsoft_accounts.json into " + secretStorage.describe());
             return legacy;
         } catch (Exception e) {
-            logger.error("Failed to migrate the OAuth token for account '" + account + "' into " + secretStorage.describe(), e);
+            logger.error("Failed to migrate the OAuth refresh token for account '" + account + "' into " + secretStorage.describe(), e);
             return null;
+        }
+    }
+
+    private void recoverRefreshToken(String account) {
+        if (secretStorage.isNative()) return;
+
+        KeyringTokenStorage keyring = TokenStorages.openKeyringIfAvailable(logger);
+        if (keyring == null) return;
+
+        try {
+            Token token = keyring.loadToken(account, TokenKey.OAUTH_TOKEN);
+            if (token == null) return;
+
+            tokenStore.put(TokenKey.OAUTH_TOKEN, token);
+            fileStorage.storeToken(account, TokenKey.OAUTH_TOKEN, token);
+            logger.info("Recovered the OAuth refresh token for account '" + account + "' from " + keyring.describe());
+        } catch (Exception e) {
+            logger.info("Could not recover the OAuth refresh token for account '" + account + "' from " + keyring.describe(), e);
         }
     }
 
@@ -270,26 +287,51 @@ public class MicrosoftAuthProvider implements IAuthProvider {
             return;
         }
 
-        boolean oauthOnDisk = false;
         if (secretStorage.isNative()) {
-            OAuthToken oAuthToken = (OAuthToken) tokenStore.get(TokenKey.OAUTH_TOKEN);
+            persistToCredentialStore(account);
+        } else {
+            persistToFileStore(account);
+        }
+    }
+
+    private void persistToCredentialStore(String account) {
+        boolean oauthFallbackToDisk = false;
+
+        for (TokenKey<?> key : tokenRegistry.keySet()) {
+            if (key != TokenKey.OAUTH_TOKEN && tokenCacheRefreshOnly) continue;
+            Token token = tokenStore.get(key);
+            if (token == null) continue;
             try {
-                secretStorage.storeOAuthToken(account, oAuthToken);
+                secretStorage.storeToken(account, key, token);
             } catch (Exception e) {
-                logger.error("Failed to store the OAuth token in " + secretStorage.describe()
-                    + ", it will be stored on disk for this session", e);
-                oauthOnDisk = true;
+                if (key == TokenKey.OAUTH_TOKEN) {
+                    logger.error("Failed to store the OAuth refresh token in " + secretStorage.describe()
+                        + ", it will be stored on disk for this session", e);
+                    oauthFallbackToDisk = true;
+                } else {
+                    logger.warn("Failed to cache the " + key.getName() + " token in " + secretStorage.describe()
+                        + ", it will be re-derived from the refresh token when needed", e);
+                }
             }
         }
 
         JsonObject entry = new JsonObject();
-        for (Map.Entry<TokenKey<?>, Token> entryToken : tokenStore.entrySet()) {
-            if (entryToken.getKey() == TokenKey.OAUTH_TOKEN && secretStorage.isNative() && !oauthOnDisk) continue;
-            entry.add(entryToken.getKey().getName(), Util.gson.toJsonTree(entryToken.getValue()));
+        if (profileCache != null) entry.add("profileCache", profileCache);
+        if (oauthFallbackToDisk) {
+            entry.add(TokenKey.OAUTH_TOKEN.getName(), Util.gson.toJsonTree(tokenStore.get(TokenKey.OAUTH_TOKEN)));
         }
-        if (profileCache != null) {
-            entry.add("profileCache", profileCache);
+        fileStorage.writeAccountEntry(account, entry);
+    }
+
+    private void persistToFileStore(String account) {
+        JsonObject entry = new JsonObject();
+        for (TokenKey<?> key : tokenRegistry.keySet()) {
+            if (key != TokenKey.OAUTH_TOKEN && tokenCacheRefreshOnly) continue;
+            Token token = tokenStore.get(key);
+            if (token == null) continue;
+            entry.add(key.getName(), Util.gson.toJsonTree(token));
         }
+        if (profileCache != null) entry.add("profileCache", profileCache);
         fileStorage.writeAccountEntry(account, entry);
     }
 

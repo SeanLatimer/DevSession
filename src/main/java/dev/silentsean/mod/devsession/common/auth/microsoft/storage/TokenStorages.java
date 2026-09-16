@@ -33,4 +33,12 @@ public final class TokenStorages {
         }
     }
 
+    public static KeyringTokenStorage openKeyringIfAvailable(Logger logger) {
+        try {
+            return KeyringTokenStorage.create(logger);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
 }
