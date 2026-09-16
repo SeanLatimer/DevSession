@@ -55,11 +55,12 @@ public class KeyringTokenStorage implements TokenStorage {
 
         try {
             JsonObject parsed = Util.parser.parse(payload).getAsJsonObject();
-            if (!parsed.has("version") || parsed.get("version").getAsInt() != PAYLOAD_VERSION) {
-                logger.warn("Credential for account '" + account + "' in " + describe() + " has an unknown version. Ignoring.");
+            if (!parsed.has("version") || parsed.get("version").getAsInt() != PAYLOAD_VERSION
+                || !parsed.has("refreshToken")) {
+                logger.warn("Credential for account '" + account + "' in " + describe() + " has an unknown format. Ignoring.");
                 return null;
             }
-            return Util.gson.fromJson(parsed.getAsJsonObject("oauth"), OAuthToken.class);
+            return new OAuthToken("", parsed.get("refreshToken").getAsString(), 0);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse the credential for account '" + account + "' from " + describe(), e);
         }
@@ -67,9 +68,14 @@ public class KeyringTokenStorage implements TokenStorage {
 
     @Override
     public void storeOAuthToken(String account, OAuthToken token) {
+        String refreshToken = token.getRefreshToken();
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            throw new IllegalStateException("The OAuth token for account '" + account + "' has no refresh token to store");
+        }
+
         JsonObject payload = new JsonObject();
         payload.addProperty("version", PAYLOAD_VERSION);
-        payload.add("oauth", Util.gson.toJsonTree(token));
+        payload.addProperty("refreshToken", refreshToken);
 
         try {
             keyring.setPassword(DOMAIN, account, Util.gson.toJson(payload));

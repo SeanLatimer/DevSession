@@ -270,6 +270,7 @@ public class MicrosoftAuthProvider implements IAuthProvider {
             return;
         }
 
+        boolean oauthOnDisk = false;
         if (secretStorage.isNative()) {
             OAuthToken oAuthToken = (OAuthToken) tokenStore.get(TokenKey.OAUTH_TOKEN);
             try {
@@ -277,13 +278,13 @@ public class MicrosoftAuthProvider implements IAuthProvider {
             } catch (Exception e) {
                 logger.error("Failed to store the OAuth token in " + secretStorage.describe()
                     + ", it will be stored on disk for this session", e);
-                fileStorage.storeOAuthToken(account, oAuthToken);
+                oauthOnDisk = true;
             }
         }
 
         JsonObject entry = new JsonObject();
         for (Map.Entry<TokenKey<?>, Token> entryToken : tokenStore.entrySet()) {
-            if (entryToken.getKey() == TokenKey.OAUTH_TOKEN && secretStorage.isNative()) continue;
+            if (entryToken.getKey() == TokenKey.OAUTH_TOKEN && secretStorage.isNative() && !oauthOnDisk) continue;
             entry.add(entryToken.getKey().getName(), Util.gson.toJsonTree(entryToken.getValue()));
         }
         if (profileCache != null) {
