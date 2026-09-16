@@ -10,20 +10,38 @@ import org.apache.commons.io.IOUtils;
 import java.io.File;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class DevSessionConfig {
+
+    private static final String[] TOKEN_STORAGE_MODES = {"auto", "keyring", "file"};
+    private static final String[] GRANT_FLOWS = {"browser", "device-code"};
 
     private final boolean defaultEnabled;
     private final String defaultAccount;
     private final Map<String, Account> accounts;
     private final File configDir;
+    private final String tokenStorage;
+    private final boolean forceTokenRefresh;
+    private final int profileCacheMinutes;
+    private final String grantFlow;
+    private final String deviceCodeProvider;
+    private final String clientId;
 
-    private DevSessionConfig(boolean defaultEnabled, String defaultAccount, Map<String, Account> accounts, File configDir) {
+    private DevSessionConfig(boolean defaultEnabled, String defaultAccount, Map<String, Account> accounts, File configDir,
+                             String tokenStorage, boolean forceTokenRefresh, int profileCacheMinutes,
+                             String grantFlow, String deviceCodeProvider, String clientId) {
         this.defaultEnabled = defaultEnabled;
         this.defaultAccount = defaultAccount;
         this.accounts = accounts;
         this.configDir = configDir;
+        this.tokenStorage = tokenStorage;
+        this.forceTokenRefresh = forceTokenRefresh;
+        this.profileCacheMinutes = profileCacheMinutes;
+        this.grantFlow = grantFlow;
+        this.deviceCodeProvider = deviceCodeProvider;
+        this.clientId = clientId;
     }
 
     public static DevSessionConfig load(boolean createDefaultConfig) {
@@ -38,7 +56,10 @@ public class DevSessionConfig {
 
         if (!configFile.exists()) {
             if (!createDefaultConfig) {
-                return new DevSessionConfig(false, null, null, configDir);
+                return new DevSessionConfig(false, null, null, configDir,
+                    Properties.TOKEN_STORAGE.getValue(), false,
+                    Integer.parseInt(Properties.PROFILE_CACHE_MINUTES.getValue()),
+                    "browser", "multimc", null);
             }
             configFile.getParentFile().mkdirs();
 
@@ -60,17 +81,64 @@ public class DevSessionConfig {
 
         Map<String, Account> accounts = new LinkedHashMap<>();
 
-        for (Config.Entry entry : config.<Config>get("accounts").entrySet()) {
-            Config value = entry.getValue();
-            accounts.put(entry.getKey(), new Account(
-                entry.getKey(),
-                AccountType.of(value.get("type")),
-                value.get("username"),
-                value.get("password")
-            ));
+        Config accountsConfig = config.get("accounts");
+        if (accountsConfig != null) {
+            for (Config.Entry entry : accountsConfig.entrySet()) {
+                Config value = entry.getValue();
+                accounts.put(entry.getKey(), new Account(
+                    entry.getKey(),
+                    AccountType.of(value.get("type")),
+                    value.get("username"),
+                    value.get("password")
+                ));
+            }
         }
 
-        return new DevSessionConfig(defaultEnabled, defaultAccount, accounts, configDir);
+        String tokenStorage = resolve(config, Properties.TOKEN_STORAGE).toLowerCase(Locale.ROOT);
+        if (!matches(tokenStorage, TOKEN_STORAGE_MODES)) {
+            throw new RuntimeException("Invalid tokenStorage value '" + tokenStorage + "', valid options are: " + String.join(", ", TOKEN_STORAGE_MODES));
+        }
+
+        boolean forceTokenRefresh = Properties.parseBoolean(resolve(config, Properties.FORCE_TOKEN_REFRESH));
+
+        int profileCacheMinutes;
+        try {
+            profileCacheMinutes = Integer.parseInt(resolve(config, Properties.PROFILE_CACHE_MINUTES));
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Invalid profileCacheMinutes value '" + resolve(config, Properties.PROFILE_CACHE_MINUTES) + "', it must be a whole number", e);
+        }
+
+        String grantFlow = resolve(config, Properties.GRANT_FLOW).toLowerCase(Locale.ROOT);
+        if (!matches(grantFlow, GRANT_FLOWS)) {
+            throw new RuntimeException("Invalid microsoft.grantFlow value '" + grantFlow + "', valid options are: " + String.join(", ", GRANT_FLOWS));
+        }
+
+        String deviceCodeProvider = resolve(config, Properties.DEVICE_CODE_PROVIDER).toLowerCase(Locale.ROOT);
+        String clientId = resolveNullable(config, Properties.CLIENT_ID);
+
+        return new DevSessionConfig(defaultEnabled, defaultAccount, accounts, configDir,
+            tokenStorage, forceTokenRefresh, profileCacheMinutes, grantFlow, deviceCodeProvider, clientId);
+    }
+
+    private static String resolve(FileConfig config, Properties property) {
+        String override = property.getOverridingValue();
+        if (override != null) return override;
+        Object value = config.get(property.getKey());
+        return value != null ? value.toString() : property.getDefaultValue();
+    }
+
+    private static String resolveNullable(FileConfig config, Properties property) {
+        String override = property.getOverridingValue();
+        if (override != null) return override;
+        Object value = config.get(property.getKey());
+        return value != null ? value.toString() : null;
+    }
+
+    private static boolean matches(String value, String[] valid) {
+        for (String candidate : valid) {
+            if (candidate.equals(value)) return true;
+        }
+        return false;
     }
 
     public boolean getDefaultEnabled() {
@@ -87,5 +155,29 @@ public class DevSessionConfig {
 
     public File getConfigDir() {
         return configDir;
+    }
+
+    public String getTokenStorage() {
+        return tokenStorage;
+    }
+
+    public boolean getForceTokenRefresh() {
+        return forceTokenRefresh;
+    }
+
+    public int getProfileCacheMinutes() {
+        return profileCacheMinutes;
+    }
+
+    public String getGrantFlow() {
+        return grantFlow;
+    }
+
+    public String getDeviceCodeProvider() {
+        return deviceCodeProvider;
+    }
+
+    public String getClientId() {
+        return clientId;
     }
 }

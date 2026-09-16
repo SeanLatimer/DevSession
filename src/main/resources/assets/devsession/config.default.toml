@@ -1,6 +1,10 @@
 # This is a toml file.
 # Lines starting with '#' are comments, which are ignored
 # You can learn more about toml here: https://learnxinyminutes.com/docs/toml/
+#
+# Every option can also be set with a JVM property (prefixed with 'devsession.')
+# or an environment variable (prefixed with 'DEVSESSION_', UPPERCASE and
+# using '_' instead of '.' or camelCase), which take priority over this file.
 
 # Uncomment this to make DevSession active by default when added to a project
 # DevSession can be enabled for each project by setting the devsession.enabled JVM property
@@ -9,6 +13,37 @@
 # Uncomment this to set a default account for all projects
 # The devsession.account JVM property can be used to set the account for each project
 #defaultAccount = "main"
+
+# How authentication tokens are stored:
+#   auto    - use the operating system credential store when one is available
+#             (Windows Credential Manager, macOS Keychain, GNOME Keyring/KWallet),
+#             otherwise fall back to microsoft_accounts.json with a warning
+#   keyring - require an operating system credential store, fail without one
+#   file    - always store tokens in microsoft_accounts.json
+#tokenStorage = "auto"
+
+# Uncomment this to treat all stored tokens as expired on the next launch,
+# forcing a refresh or a new login
+#forceTokenRefresh = false
+
+# How long cached profile information (uuid and name) stays valid, in minutes
+#profileCacheMinutes = 360
+
+[microsoft]
+# How to authenticate with Microsoft:
+#   browser     - sign in with your system browser (default)
+#   device-code - sign in via a short code at https://www.microsoft.com/link,
+#                 useful for remote/headless environments
+#grantFlow = "browser"
+
+# Which approved OAuth client is used when grantFlow is "device-code":
+#   multimc (default), devlogin or prism
+#deviceCodeProvider = "multimc"
+
+# Override the OAuth client id. For the browser flow a custom client must be
+# approved for Minecraft login and register the redirect URI
+# http://127.0.0.1:3000. Leave unset to use the default client.
+#clientId = "00000000-0000-0000-0000-000000000000"
 
 # A Microsoft account
 # You do not need to specify your email or password in this config, since

@@ -66,7 +66,7 @@ public class DevSession {
     }
 
     public Account getSelectedAccount() {
-        String commandLineAccount = Properties.ACCOUNT.getValue();
+        String commandLineAccount = Properties.ACCOUNT.getOverridingValue();
         String defaultAccount = config.getDefaultAccount();
 
         if (commandLineAccount != null) {
@@ -80,7 +80,8 @@ public class DevSession {
             }
             throw new RuntimeException("Account '" + defaultAccount + "' not found, valid accounts are: " + getValidAccounts());
         }
-        throw new RuntimeException("No account specified, specify one with the defaultAccount config option or the " + Properties.ACCOUNT.getFullKey() + " property");
+        throw new RuntimeException("No account specified, specify one with the defaultAccount config option, the "
+            + Properties.ACCOUNT.getFullKey() + " property or the " + Properties.ACCOUNT.getEnvKey() + " environment variable");
     }
 
     public boolean isEnabled(boolean defaultEnabled) {
