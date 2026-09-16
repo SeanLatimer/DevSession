@@ -1,14 +1,18 @@
-name: build
+name: publish
 
 on:
   push:
-    branches:
-      - "**"
-  pull_request:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build:
-    name: "Build"
+  publish:
+    name: "Publish"
     runs-on: "ubuntu-latest"
 
     steps:
@@ -28,14 +32,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - run: ./gradlew --stacktrace build
-
-      - name: Get Short SHA
-        id: sha
-        run: echo "sha_short=$(git rev-parse --short HEAD)" > $GITHUB_OUTPUT
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: DevSession-artifacts-${{ steps.sha.outputs.sha_short }}
-          path: |
-            build/distributions/*.jar
+      - run: ./gradlew --stacktrace publish
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

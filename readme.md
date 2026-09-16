@@ -23,8 +23,35 @@ Additionally, the fabric module may work on other fabric-based loaders (such as 
 
 # Usage
 
-Download a DevSession jar from the [releases](https://github.com/SeanLatimer/DevAuth/releases),
+Download a DevSession jar from the [releases](https://github.com/SeanLatimer/DevSession/releases),
 place it in your mods folder and configure it using the configuration section below.
+
+## Maven
+
+DevSession is also published to [GitHub Packages](https://github.com/SeanLatimer/DevSession/packages),
+one artifact per loader (`devsession-fabric` / `devsession-neoforge`). Note that GitHub Packages
+requires authentication even for reading: each consumer needs a GitHub
+[personal access token](https://github.com/settings/tokens) with the `read:packages` scope.
+
+```gradle
+repositories {
+    maven {
+        name = "DevSession"
+        url = uri("https://maven.pkg.github.com/SeanLatimer/DevSession")
+        credentials {
+            username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
+dependencies {
+    localRuntime 'dev.silentsean.mod.devsession:devsession-fabric:0.1.0+1.21.1'
+}
+```
+
+Set `gpr.user` / `gpr.key` in your `~/.gradle/gradle.properties`, or use the
+`GITHUB_ACTOR` / `GITHUB_TOKEN` environment variables.
 
 # Configuration
 

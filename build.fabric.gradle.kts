@@ -6,10 +6,12 @@ import org.gradle.jvm.toolchain.JvmVendorSpec
 plugins {
     // This plugin applies the correct loom variant based on the Minecraft version
     id("dev.kikugie.loom-back-compat")
+    `maven-publish`
 }
 
 version = "${property("mod.version")}+${sc.current.version}"
 base.archivesName = "${property("mod.id") as String}-fabric"
+group = "dev.silentsean.mod.devsession"
 
 val requiredJava: JavaVersion = when {
     sc.current.parsed >= "26.1" -> JavaVersion.VERSION_25
@@ -105,4 +107,37 @@ tasks {
     }
 
     named("assemble") { dependsOn("buildAndCollect") }
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("mod") {
+            artifactId = "${property("mod.id") as String}-fabric"
+            artifact(loomx.modJar.flatMap { it.archiveFile })
+            artifact(loomx.modSourcesJar.flatMap { it.archiveFile })
+
+            pom {
+                name = "DevSession (Fabric)"
+                description = "Safely authenticate Minecraft accounts in development environments."
+                url = "https://github.com/SeanLatimer/DevSession"
+                licenses {
+                    license {
+                        name = "MIT"
+                        url = "https://opensource.org/licenses/MIT"
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/SeanLatimer/DevSession")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: (findProperty("gpr.user") as String?)
+                password = System.getenv("GITHUB_TOKEN") ?: (findProperty("gpr.key") as String?)
+            }
+        }
+    }
 }

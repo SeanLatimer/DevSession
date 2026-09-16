@@ -8,10 +8,12 @@ import org.gradle.jvm.tasks.Jar
 plugins {
     id("net.neoforged.moddev")
     id("neoforge-mutex")
+    `maven-publish`
 }
 
 version = "${property("mod.version")}+${sc.current.version}"
 base.archivesName = "${property("mod.id") as String}-neoforge"
+group = "dev.silentsean.mod.devsession"
 
 val neoLoader = property("deps.neo_loader") as String
 
@@ -131,4 +133,37 @@ tasks {
     }
 
     named("assemble") { dependsOn("buildAndCollect") }
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("mod") {
+            artifactId = "${property("mod.id") as String}-neoforge"
+            artifact(project.tasks.named("jar"))
+            artifact(project.tasks.named("sourcesJar"))
+
+            pom {
+                name = "DevSession (NeoForge)"
+                description = "Safely authenticate Minecraft accounts in development environments."
+                url = "https://github.com/SeanLatimer/DevSession"
+                licenses {
+                    license {
+                        name = "MIT"
+                        url = "https://opensource.org/licenses/MIT"
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/SeanLatimer/DevSession")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: (findProperty("gpr.user") as String?)
+                password = System.getenv("GITHUB_TOKEN") ?: (findProperty("gpr.key") as String?)
+            }
+        }
+    }
 }
