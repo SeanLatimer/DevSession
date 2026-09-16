@@ -2,7 +2,6 @@ package dev.silentsean.mod.devsession.common.auth.microsoft.oauth;
 
 import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpServer;
-import dev.silentsean.mod.devsession.common.auth.microsoft.Constants;
 import dev.silentsean.mod.devsession.common.auth.microsoft.MSAUtil;
 import dev.silentsean.mod.devsession.common.auth.microsoft.token.OAuthToken;
 import dev.silentsean.mod.devsession.common.util.Util;
@@ -25,8 +24,11 @@ public class CodeOAuthProvider extends OAuthProvider {
     private static final String OAUTH_URL = "https://login.live.com/oauth20_authorize.srf";
     private static final String OAUTH_TOKEN_URL = "https://login.live.com/oauth20_token.srf";
 
-    public CodeOAuthProvider(Logger logger, String scopes) {
+    private final String clientId;
+
+    public CodeOAuthProvider(Logger logger, String scopes, String clientId) {
         super(logger, scopes);
+        this.clientId = clientId;
     }
 
     @Override
@@ -59,7 +61,7 @@ public class CodeOAuthProvider extends OAuthProvider {
 
     private OAuthToken getAuthorizationToken(Map<String, String> extraParams) {
         Map<String, String> params = Util.stringMap(
-            "client_id", Constants.CLIENT_ID,
+            "client_id", clientId,
             "scope", scopes,
             "redirect_uri", REDIRECT_URI
         );
@@ -108,7 +110,7 @@ public class CodeOAuthProvider extends OAuthProvider {
             server.start();
 
             String queryString = MSAUtil.buildQuery(Util.stringMap(
-                "client_id", Constants.CLIENT_ID,
+                "client_id", clientId,
                 "response_type", "code",
                 "redirect_uri", REDIRECT_URI,
                 "scope", scopes,

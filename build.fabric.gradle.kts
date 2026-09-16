@@ -24,6 +24,23 @@ dependencies {
     include("com.electronwill.night-config:core:3.6.5")
     include("com.electronwill.night-config:toml:3.6.5")
 
+    // OS credential store access, bundled into the jar
+    val keyringDeps = arrayOf(
+        "com.github.javakeyring:java-keyring:${property("deps.keyring")}",
+        "net.java.dev.jna:jna:${property("deps.jna")}",
+        "net.java.dev.jna:jna-platform:${property("deps.jna")}",
+        "pt.davidafsilva.apple:jkeychain:${property("deps.jkeychain")}",
+        "de.swiesend:secret-service:${property("deps.secret_service")}",
+        "com.github.hypfvieh:dbus-java-core:${property("deps.dbus_java")}",
+        "com.github.hypfvieh:dbus-java-transport-native-unixsocket:${property("deps.dbus_java")}",
+        "at.favre.lib:hkdf:${property("deps.hkdf")}",
+        "org.slf4j:slf4j-api:${property("deps.slf4j")}",
+    )
+    for (dep in keyringDeps) {
+        implementation(dep)
+        include(dep)
+    }
+
     minecraft("com.mojang:minecraft:${sc.current.version}")
     loomx.applyMojangMappings()
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")

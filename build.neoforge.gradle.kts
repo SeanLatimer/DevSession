@@ -1,4 +1,5 @@
 import org.gradle.api.JavaVersion
+import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.jvm.toolchain.JvmVendorSpec
@@ -24,6 +25,39 @@ dependencies {
     // Provided by minecraft (FML bundles night-config), compile-only
     compileOnly("com.electronwill.night-config:core:3.6.5")
     compileOnly("com.electronwill.night-config:toml:3.6.5")
+
+    // OS credential store access, bundled into the jar via jar-in-jar.
+    // slf4j and JNA are intentionally omitted: FML provides them, and duplicates
+    // of either conflict with the versions minecraft strictly pins
+    val keyringDeps = linkedMapOf(
+        "com.github.javakeyring:java-keyring" to "${property("deps.keyring")}",
+        "pt.davidafsilva.apple:jkeychain" to "${property("deps.jkeychain")}",
+        "de.swiesend:secret-service" to "${property("deps.secret_service")}",
+        "com.github.hypfvieh:dbus-java-core" to "${property("deps.dbus_java")}",
+        "com.github.hypfvieh:dbus-java-transport-native-unixsocket" to "${property("deps.dbus_java")}",
+        "at.favre.lib:hkdf" to "${property("deps.hkdf")}",
+    )
+    for ((notation, version) in keyringDeps) {
+        val dep = add("implementation", "$notation:$version") as ModuleDependency
+        val jarJarDep = add("jarJar", "$notation:$version") as ExternalModuleDependency
+        jarJarDep.version {
+            strictly("[$version]")
+            prefer(version)
+        }
+        if (notation == "com.github.javakeyring:java-keyring") {
+            dep.exclude(mapOf("group" to "net.java.dev.jna"))
+            jarJarDep.exclude(mapOf("group" to "net.java.dev.jna"))
+        }
+    }
+
+    // Embedded libraries are only loaded in dev runs via the additional runtime classpath before MC 1.21.9
+    afterEvaluate {
+        if (sc.current.parsed < "26.1") {
+            for ((notation, version) in keyringDeps) {
+                add("additionalRuntimeClasspath", "$notation:$version")
+            }
+        }
+    }
 }
 
 neoForge {

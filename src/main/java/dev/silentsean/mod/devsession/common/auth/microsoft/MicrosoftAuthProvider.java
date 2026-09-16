@@ -7,20 +7,23 @@ import dev.silentsean.mod.devsession.common.DevSession;
 import dev.silentsean.mod.devsession.common.auth.IAuthProvider;
 import dev.silentsean.mod.devsession.common.auth.SessionData;
 import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.CodeOAuthProvider;
+import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.DeviceCodeClients;
+import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.DeviceCodeOAuthProvider;
 import dev.silentsean.mod.devsession.common.auth.microsoft.oauth.OAuthProvider;
+import dev.silentsean.mod.devsession.common.auth.microsoft.storage.FileTokenStorage;
+import dev.silentsean.mod.devsession.common.auth.microsoft.storage.TokenStorage;
+import dev.silentsean.mod.devsession.common.auth.microsoft.storage.TokenStorages;
 import dev.silentsean.mod.devsession.common.auth.microsoft.token.OAuthToken;
 import dev.silentsean.mod.devsession.common.auth.microsoft.token.Token;
 import dev.silentsean.mod.devsession.common.auth.microsoft.token.TokenKey;
 import dev.silentsean.mod.devsession.common.auth.microsoft.token.XBLToken;
 import dev.silentsean.mod.devsession.common.config.Account;
+import dev.silentsean.mod.devsession.common.config.DevSessionConfig;
 import dev.silentsean.mod.devsession.common.util.Util;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -31,12 +34,11 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * (the third rewrite of) <br/>
- * A nasty little thing. <br/><br/>
  * References: <ul>
  * <li><a href="https://wiki.vg/Microsoft_Authentication_Scheme">wiki.vg</a></li>
  * <li><a href="https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow">Microsoft docs</a></li>
  * <li><a href="https://datatracker.ietf.org/doc/html/rfc7636">RFC 7636: Proof Key for Code Exchange</a></li>
+ * <li><a href="https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-device-code">Microsoft device code flow</a></li>
  * </ul>
  *
  * @author DJtheRedstoner
@@ -51,17 +53,44 @@ public class MicrosoftAuthProvider implements IAuthProvider {
 
     private static final Logger logger = LogManager.getLogger("DevSession/Microsoft");
 
-    private final DevSession DevSession;
-    private final OAuthProvider oAuthProvider = new CodeOAuthProvider(logger, SCOPES);
+    private final OAuthProvider oAuthProvider;
+    private final FileTokenStorage fileStorage;
+    private final TokenStorage secretStorage;
+    private final boolean forceTokenRefresh;
+    private final int profileCacheMinutes;
 
     private final Map<TokenKey<?>, Supplier<? extends Token>> tokenRegistry = new LinkedHashMap<>();
     private final Map<TokenKey<?>, Token> tokenStore = new LinkedHashMap<>();
 
-    private JsonObject accountsData;
+    private JsonObject profileCache;
+    private boolean freshInteractiveAuth;
 
     public MicrosoftAuthProvider(DevSession DevSession) {
-        this.DevSession = DevSession;
+        DevSessionConfig config = DevSession.getConfig();
+        this.oAuthProvider = createOAuthProvider(config);
+        this.forceTokenRefresh = config.getForceTokenRefresh();
+        this.profileCacheMinutes = config.getProfileCacheMinutes();
+        this.fileStorage = new FileTokenStorage(config.getConfigDir());
+        this.secretStorage = TokenStorages.select(config.getTokenStorage(), logger, this.fileStorage);
         initTokenRegistry();
+    }
+
+    private static OAuthProvider createOAuthProvider(DevSessionConfig config) {
+        String clientIdOverride = config.getClientId();
+        String grantFlow = config.getGrantFlow();
+
+        switch (grantFlow) {
+            case "browser":
+                return new CodeOAuthProvider(logger, SCOPES, clientIdOverride != null ? clientIdOverride : Constants.CLIENT_ID);
+            case "device-code": {
+                DeviceCodeClients client = DeviceCodeClients.of(config.getDeviceCodeProvider());
+                String clientId = clientIdOverride != null ? clientIdOverride : client.getClientId();
+                logger.info("Using the " + client.getName() + " client for device code sign-in");
+                return new DeviceCodeOAuthProvider(logger, SCOPES, clientId);
+            }
+            default:
+                throw new RuntimeException("Unknown microsoft.grantFlow '" + grantFlow + "', valid options are: browser, device-code");
+        }
     }
 
     protected void initTokenRegistry() {
@@ -79,7 +108,7 @@ public class MicrosoftAuthProvider implements IAuthProvider {
     protected <T extends Token> T get(TokenKey<T> tokenKey) {
         Supplier<T> supplier = (Supplier<T>) tokenRegistry.get(tokenKey);
         T token = (T) tokenStore.get(tokenKey);
-        if (token == null || token.isExpired()) {
+        if (token == null || token.isExpired() || forceTokenRefresh) {
             logger.info("Fetching token " + tokenKey.getName());
             if (token instanceof OAuthToken) {
                 try {
@@ -106,7 +135,9 @@ public class MicrosoftAuthProvider implements IAuthProvider {
     }
 
     protected OAuthToken getOAuthToken() {
-        return oAuthProvider.getOAuthToken();
+        OAuthToken token = oAuthProvider.getOAuthToken();
+        freshInteractiveAuth = true;
+        return token;
     }
 
     protected XBLToken getXBLToken() {
@@ -162,19 +193,118 @@ public class MicrosoftAuthProvider implements IAuthProvider {
 
     @Override
     public SessionData login(Account account) {
-        readAccountsJson(account);
+        String name = account.getName();
+        freshInteractiveAuth = false;
+
+        readStoredTokens(name);
         try {
             SessionData data = getMinecraftProfile();
-            writeAccountsJson(account, true);
+            persistTokens(name, true);
             return data;
         } catch (Exception e) {
-            writeAccountsJson(account, false);
+            persistTokens(name, false);
             throw new RuntimeException("Failed to login", e);
         }
     }
 
+    private void readStoredTokens(String account) {
+        JsonObject entry = fileStorage.readAccountEntry(account);
+        boolean loadedStoredOAuth = false;
+
+        if (entry != null) {
+            for (TokenKey<?> tokenKey : tokenRegistry.keySet()) {
+                if (tokenKey == TokenKey.OAUTH_TOKEN) continue;
+                if (entry.has(tokenKey.getName())) {
+                    Token token = Util.gson.fromJson(entry.get(tokenKey.getName()), tokenKey.getClazz());
+                    tokenStore.put(tokenKey, token);
+                }
+            }
+
+            if (entry.has("profileCache")) {
+                profileCache = entry.getAsJsonObject("profileCache");
+            }
+
+            if (secretStorage.isNative() && entry.has("oauth")) {
+                OAuthToken migrated = migrateOAuthToken(account, entry);
+                if (migrated != null) {
+                    tokenStore.put(TokenKey.OAUTH_TOKEN, migrated);
+                    loadedStoredOAuth = true;
+                }
+            }
+        }
+
+        if (!loadedStoredOAuth && !forceTokenRefresh) {
+            try {
+                OAuthToken stored = secretStorage.loadOAuthToken(account);
+                if (stored != null) {
+                    tokenStore.put(TokenKey.OAUTH_TOKEN, stored);
+                    loadedStoredOAuth = true;
+                }
+            } catch (Exception e) {
+                logger.error("Failed to read the OAuth token from " + secretStorage.describe() + ", a new login will be required", e);
+            }
+        }
+
+        if (forceTokenRefresh && loadedStoredOAuth) {
+            logger.info("forceTokenRefresh is enabled, treating all stored tokens as expired");
+        }
+    }
+
+    private OAuthToken migrateOAuthToken(String account, JsonObject entry) {
+        try {
+            OAuthToken legacy = Util.gson.fromJson(entry.get("oauth"), OAuthToken.class);
+            secretStorage.storeOAuthToken(account, legacy);
+            entry.remove("oauth");
+            fileStorage.writeAccountEntry(account, entry);
+            logger.info("Migrated the OAuth token for account '" + account + "' from microsoft_accounts.json into " + secretStorage.describe());
+            return legacy;
+        } catch (Exception e) {
+            logger.error("Failed to migrate the OAuth token for account '" + account + "' into " + secretStorage.describe(), e);
+            return null;
+        }
+    }
+
+    private void persistTokens(String account, boolean success) {
+        if (!success) {
+            fileStorage.writeAccountEntry(account, null);
+            return;
+        }
+
+        if (secretStorage.isNative()) {
+            OAuthToken oAuthToken = (OAuthToken) tokenStore.get(TokenKey.OAUTH_TOKEN);
+            try {
+                secretStorage.storeOAuthToken(account, oAuthToken);
+            } catch (Exception e) {
+                logger.error("Failed to store the OAuth token in " + secretStorage.describe()
+                    + ", it will be stored on disk for this session", e);
+                fileStorage.storeOAuthToken(account, oAuthToken);
+            }
+        }
+
+        JsonObject entry = new JsonObject();
+        for (Map.Entry<TokenKey<?>, Token> entryToken : tokenStore.entrySet()) {
+            if (entryToken.getKey() == TokenKey.OAUTH_TOKEN && secretStorage.isNative()) continue;
+            entry.add(entryToken.getKey().getName(), Util.gson.toJsonTree(entryToken.getValue()));
+        }
+        if (profileCache != null) {
+            entry.add("profileCache", profileCache);
+        }
+        fileStorage.writeAccountEntry(account, entry);
+    }
+
     protected SessionData getMinecraftProfile() {
         Token mcSession = get(TokenKey.SESSION_TOKEN);
+
+        if (!freshInteractiveAuth && hasValidProfileCache()) {
+            logger.info("Using cached profile information");
+            return new SessionData(
+                mcSession.getToken(),
+                profileCache.get("uuid").getAsString(),
+                profileCache.get("name").getAsString(),
+                "msa",
+                "{}"
+            );
+        }
 
         try {
             JsonObject profileObject = Util.client.authorizedJsonGet(
@@ -182,65 +312,24 @@ public class MicrosoftAuthProvider implements IAuthProvider {
                 "Bearer " + mcSession.getToken()
             );
 
-            return new SessionData(
-                mcSession.getToken(),
-                profileObject.get("id").getAsString(),
-                profileObject.get("name").getAsString(),
-                "msa",
-                "{}"
-            );
+            String uuid = profileObject.get("id").getAsString();
+            String name = profileObject.get("name").getAsString();
+
+            profileCache = new JsonObject();
+            profileCache.addProperty("uuid", uuid);
+            profileCache.addProperty("name", name);
+            profileCache.addProperty("cachedAt", Util.secondsSinceEpoch());
+
+            return new SessionData(mcSession.getToken(), uuid, name, "msa", "{}");
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch minecraft profile, does the user own the game?", e);
         }
     }
 
-    private void readAccountsJson(Account account) {
-        File accountsJson = new File(DevSession.getConfig().getConfigDir(), "microsoft_accounts.json");
-
-        try {
-            String json = FileUtils.readFileToString(accountsJson, StandardCharsets.UTF_8);
-            JsonObject parsed = Util.parser.parse(json).getAsJsonObject();
-
-            if (!parsed.has("version") || parsed.get("version").getAsInt() != 1) {
-                logger.info("microsoft_accounts.json has unknown version. Ignoring.");
-                return;
-            }
-
-            accountsData = parsed;
-
-            if (parsed.has(account.getName())) {
-                JsonObject accountData = parsed.get(account.getName()).getAsJsonObject();
-                for (TokenKey<?> tokenKey : tokenRegistry.keySet()) {
-                    if (accountData.has(tokenKey.getName())) {
-                        Token token = Util.gson.fromJson(accountData.get(tokenKey.getName()), tokenKey.getClazz());
-                        tokenStore.put(tokenKey, token);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Failed to parse microsoft_accounts.json", e);
-        }
+    private boolean hasValidProfileCache() {
+        if (profileCache == null || !profileCache.has("uuid") || !profileCache.has("name")) return false;
+        long cachedAt = profileCache.has("cachedAt") ? profileCache.get("cachedAt").getAsLong() : 0;
+        return Util.secondsSinceEpoch() - cachedAt < profileCacheMinutes * 60L;
     }
 
-    private void writeAccountsJson(Account account, boolean writeCurrentAccount) {
-        File accountsJson = new File(DevSession.getConfig().getConfigDir(), "microsoft_accounts.json");
-
-        if (accountsData == null) accountsData = new JsonObject();
-        accountsData.addProperty("version", 1);
-        accountsData.remove(account.getName());
-
-        try {
-            if (writeCurrentAccount) {
-                JsonObject accountData = new JsonObject();
-                for (Map.Entry<TokenKey<?>, Token> entry : tokenStore.entrySet()) {
-                    accountData.add(entry.getKey().getName(), Util.gson.toJsonTree(entry.getValue()));
-                }
-                accountsData.add(account.getName(), accountData);
-            }
-
-            FileUtils.writeStringToFile(accountsJson, Util.gson.toJson(accountsData), StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            logger.error("Failed to write microsoft_accounts.json", e);
-        }
-    }
 }
