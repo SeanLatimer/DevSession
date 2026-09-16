@@ -6,12 +6,14 @@ import com.google.gson.JsonParser;
 import dev.silentsean.mod.devsession.common.util.request.Client;
 
 import java.io.File;
+import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class Util {
 
     public static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    public static final Gson compactGson = new Gson();
     public static final JsonParser parser = new JsonParser();
     public static final Client client = Client.getInstance();
 
@@ -24,6 +26,10 @@ public class Util {
         } else {
             return new File(System.getProperty("user.home"), ".devsession");
         }
+    }
+
+    public static boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows");
     }
 
     public static long secondsSinceEpoch() {
