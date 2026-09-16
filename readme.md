@@ -4,7 +4,7 @@ A fork of [DevAuth](https://github.com/DJtheRedstoner/DevAuth).
 
 Safely authenticate Minecraft accounts in development environments.
 
-**Incompatible with the original DevAuth**: the two cannot be installed together,
+**Incompatible with [DevAuth](https://github.com/DJtheRedstoner/DevAuth)**: the two cannot be installed together,
 and DevSession keeps its config and tokens in a separate directory
 (`~/.devsession` instead of `~/.devauth`), so existing DevAuth logins do not carry over.
 
