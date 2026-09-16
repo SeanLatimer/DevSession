@@ -3,7 +3,7 @@ plugins {
     id("net.neoforged.moddev") version "2.0.147" apply false
 }
 
-stonecutter active "1.21.1-fabric"
+stonecutter active "1.21.1-neoforge"
 
 stonecutter parameters {
     val (version, loader) = current.project.split('-', limit = 2)
