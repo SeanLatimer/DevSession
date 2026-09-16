@@ -54,6 +54,7 @@ Every option below can be set through all three layers.
 |       `devsession.configDir`       | Selects the config directory (environment variable and JVM property only) | [See below](#default-config-directory-locations) |
 |         `devsession.account`       | Select the account to log into                                          | none         |
 |       `devsession.tokenStorage`    | How tokens are stored: `auto`, `keyring` or `file` ([see security](#security)) | `auto`   |
+|       `devsession.tokenCache`      | Which tokens are cached between launches: `all` or `refresh` ([see security](#security)) | `all` |
 |    `devsession.forceTokenRefresh`  | Treat all stored tokens as expired and refresh them on the next launch  | `false`      |
 |   `devsession.profileCacheMinutes` | How long cached profile information (uuid and name) stays valid, in minutes | `360`    |
 |  `devsession.microsoft.grantFlow`  | Authentication flow: `browser` or `device-code` ([see below](#authentication-flows)) | `browser` |
@@ -89,6 +90,11 @@ defaultAccount = "main"
 #   keyring - require an operating system credential store, fail without one
 #   file    - always store tokens in microsoft_accounts.json
 tokenStorage = "auto"
+
+# Which tokens are cached between launches:
+#   all     - every token of the login chain
+#   refresh - only the refresh token, the rest is re-derived on each launch
+tokenCache = "all"
 
 # Treat all stored tokens as expired on the next launch
 forceTokenRefresh = false
@@ -144,18 +150,23 @@ set with `microsoft.clientId`.
 
 # Security
 
-DevSession stores reusable Microsoft account credentials (the OAuth access and refresh
-tokens) in your **operating system credential store** when one is available:
-Windows Credential Manager, macOS Keychain, GNOME Keyring or KWallet.
-Short-lived session tokens and cached profile information stay in
-`microsoft_accounts.json` in plain text.
+DevSession caches authentication tokens in your **operating system credential store** when one is
+available: Windows Credential Manager, macOS Keychain, GNOME Keyring or KWallet. One credential per
+token is stored (`<account>:oauth`, `:xbl`, `:xsts`, `:session`), so launches need no network calls
+until tokens expire. With `tokenCache = "refresh"` only the OAuth refresh token is cached and the
+rest of the chain is re-derived on every launch.
 
-If no supported credential store is available (headless Linux servers, containers, CI),
-DevSession falls back to storing the OAuth tokens in `microsoft_accounts.json` and
-prints a prominent warning on launch. This fallback can be controlled with
-`tokenStorage = "keyring"` (fail instead of falling back) or `tokenStorage = "file"`
-(always use the file). Existing file-based credentials are migrated into the credential
-store automatically on the first launch after an upgrade.
+When a token does not fit the credential store (some Windows credential blobs are capped at 2560
+bytes, which the longest tokens can exceed), it is simply not cached: a warning is logged and the
+token is re-derived from the refresh token when needed. A token is never written to plain text
+because it is too large.
+
+Cached profile information (uuid and name) stays in `microsoft_accounts.json` in plain text; it
+contains no credentials. When no supported credential store is available (headless Linux servers,
+containers, CI), DevSession falls back to storing tokens in `microsoft_accounts.json` and prints a
+prominent warning on launch, or fails outright in `keyring` mode; `tokenStorage = "file"` always
+uses the file and logs a warning. If a credential store was previously used, switching to `file`
+mode recovers the refresh token from it automatically, and switching back re-uses the file's tokens.
 
 Note that no storage here is bulletproof: in a development environment the game runs
 with a standard JVM that is not packaged or sandboxed, so a credential store mainly
