@@ -100,6 +100,15 @@ or believe this file may be compromised, DevSession's permissions can be revoked
 Note that this does **not** immediately revoke all access tokens, due to design decisions by Microsoft.
 See [here][tokenLifetimes] for more information.
 
+# Credits
+
+DevSession is a fork of [DevAuth](https://github.com/DJtheRedstoner/DevAuth).
+All credit for the original idea, design, and implementation belongs to
+[DJtheRedstoner](https://github.com/DJtheRedstoner); this fork exists only to
+maintain the concept on newer Minecraft versions under a different name.
+The original MIT license and copyright notice are preserved in
+[LICENSE](LICENSE) and in every built jar.
+
 [setProperty]: https://docs.oracle.com/en-us/java/javase/21/docs/api/java.base/java/lang/System.html#setProperty(java.lang.String,java.lang.String)
 [manageConsent]: https://account.live.com/consent/Manage
 [tokenLifetimes]: https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes#access-tokens
