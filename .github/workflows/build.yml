@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "25"
 
       - uses: actions/cache@v4
         with:
@@ -28,7 +28,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - run: ./gradlew --no-daemon --stacktrace build
+      - run: ./gradlew --stacktrace build
 
       - name: Get Short SHA
         id: sha
