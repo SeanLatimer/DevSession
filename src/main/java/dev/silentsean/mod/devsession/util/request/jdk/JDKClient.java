@@ -14,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 
 public class JDKClient implements Client {
 
@@ -38,7 +39,7 @@ public class JDKClient implements Client {
                 .build();
 
             HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString());
-            checkStatus(res);
+            checkStatus(res, Set.of(200));
 
             return Util.parser.parse(res.body()).getAsJsonObject();
         } catch (Exception e) {
@@ -47,7 +48,7 @@ public class JDKClient implements Client {
     }
 
     @Override
-    public JsonObject urlEncodedJsonPost(String url, Map<String, String> body) {
+    public JsonObject urlEncodedJsonPost(String url, Map<String, String> body, Set<Integer> acceptableStatuses) {
         try {
             StringBuilder bodyString = new StringBuilder();
             for (Map.Entry<String, String> entry : body.entrySet()) {
@@ -66,7 +67,7 @@ public class JDKClient implements Client {
                 .build();
 
             HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString());
-            checkStatus(res);
+            checkStatus(res, acceptableStatuses);
 
             return Util.parser.parse(res.body()).getAsJsonObject();
         } catch (Exception e) {
@@ -83,7 +84,7 @@ public class JDKClient implements Client {
                 .build();
 
             HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString());
-            checkStatus(res);
+            checkStatus(res, Set.of(200));
 
             return Util.parser.parse(res.body()).getAsJsonObject();
         } catch (Exception e) {
@@ -91,8 +92,8 @@ public class JDKClient implements Client {
          }
     }
 
-    private void checkStatus(HttpResponse<String> res) {
-        if (res.statusCode() != 200) {
+    private void checkStatus(HttpResponse<String> res, Set<Integer> acceptableStatuses) {
+        if (!acceptableStatuses.contains(res.statusCode())) {
             throw new RuntimeException(
                 "Received bad status " + res.statusCode() + " body: " + res.body()
             );
