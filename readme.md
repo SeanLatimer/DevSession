@@ -6,12 +6,13 @@ Safely authenticate Minecraft accounts in development environments.
 
 # Minecraft Version Support
 
-| Versions                  | Module         | Supported |
-|---------------------------|----------------|:---------:|
-| 1.14 - 1.21.11 Fabric     | `fabric`       |     ✅     |
-| 1.8.9 - 1.12.2 Forge      | `forge-legacy` |     ✅     |
-| 1.14 - 1.21.11 Forge      | `forge-latest` |     ✅     |
-| 1.20.4 - 1.21.11 NeoForge | `neoforge`     |     ✅     |
+| Versions                    | Module     | Supported |
+|-----------------------------|------------|:---------:|
+| 1.20.1, 1.21.1, 26.1.x Fabric     | `fabric`   |     ✅     |
+| 1.20.4, 1.21.1, 26.1.x NeoForge   | `neoforge` |     ✅     |
+
+One jar per Minecraft version is published per loader (e.g. `devauth-fabric-1.2.2+1.21.1.jar`),
+so pick the jar matching your game version. Forge is no longer supported by this fork.
 
 **Note:** If a version isn't listed above as supported, just try it.
 Additionally, the fabric module may work on other fabric-based loaders (such as legacy-fabric).
@@ -32,28 +33,7 @@ place it in your mods folder and configure it using the configuration section be
 <details>
 <summary>Maven Dependency</summary>
 
-Add the DevAuth repository
-```gradle
-repositories {
-    maven { url = "https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1" }
-}
-```
-
-Add the DevAuth dependency
-
-[![DevAuth badge](https://img.shields.io/maven-metadata/v?label=DevAuth&metadataUrl=https%3A%2F%2Fpkgs.dev.azure.com%2Fdjtheredstoner%2FDevAuth%2F_packaging%2Fpublic%2Fmaven%2Fv1%2Fme%2Fdjtheredstoner%2FDevAuth-common%2Fmaven-metadata.xml)][azurePackages]
-
-```kt
-dependencies {
-    // moduleName is based on your mod loader and minecraft version, see the table above
-    // version is the DevAuth version you are adding, check releases on GitHub or the badge above
-    // With loom use the modRuntimeOnly configuration
-    // With archloom and the forge-legacy module use the runtimeOnly configuration to avoid warnings
-    // With ForgeGradle 5 or NeoGradle, use the runtimeOnly configuration
-    // With ForgeGradle 2, use the implementation configuration as runtimeOnly appears to be broken
-    modRuntimeOnly("me.djtheredstoner:DevAuth-${moduleName}:${version}")
-}
-```
+Maven distribution is not currently published by this fork — use the release jars above.
 
 </details>
 
@@ -139,4 +119,3 @@ See [here][tokenLifetimes] for more information.
 [setProperty]: https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/System.html#setProperty(java.lang.String,java.lang.String)
 [manageConsent]: https://account.live.com/consent/Manage
 [tokenLifetimes]: https://learn.microsoft.com/en-us/entra/identity-platform/configurable-token-lifetimes#access-tokens
-[azurePackages]: https://dev.azure.com/djtheredstoner/DevAuth/_artifacts/feed/public
