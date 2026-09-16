@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "${id}",
+  "version": "${version}",
+
+  "name": "${name}",
+  "description": "Safely authenticate Minecraft accounts in development environments.",
+  "authors": [
+    "DJtheRedstoner"
+  ],
+
+  "license": "MIT",
+
+  "icon": "assets/devauth/logo.png",
+
+  "environment": "client",
+  "mixins": [
+    "mixins.devauth.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.21",
+    "minecraft": "${minecraft}"
+  }
+}

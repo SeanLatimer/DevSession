@@ -1,0 +1,14 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+
+[[mods]]
+modId = "${id}"
+version = "${version}"
+displayName = "${name}"
+authors = "DJtheRedstoner"
+description = "Safely authenticate Minecraft accounts in development environments."
+logoFile = "assets/devauth/logo.png"
+
+[[mixins]]
+config = "mixins.devauth.json"

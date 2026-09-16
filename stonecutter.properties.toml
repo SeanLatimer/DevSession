@@ -1,0 +1,30 @@
+mod.id = "devauth"
+mod.name = "DevAuth"
+mod.version = "1.2.2"
+
+# Mod compatibility range in fabric.mod.json / neoforge.mods.toml
+deps.fabric_loader = "0.19.5"
+
+# Loom version used by loom-back-compat for both loom variants
+loomx.loom_version = "1.17-SNAPSHOT"
+
+["1.20.1"]
+mod.mc_compat = "~1.20.1"
+
+["1.20.4"]
+mod.mc_compat = "~1.20.4"
+
+["1.21.1"]
+mod.mc_compat = "~1.21.1"
+
+["26.1.2"]
+mod.mc_compat = "~26.1"
+
+[neoforge."1.20.4"]
+deps.neo_loader = "20.4.251"
+
+[neoforge."1.21.1"]
+deps.neo_loader = "21.1.216"
+
+[neoforge."26.1.2"]
+deps.neo_loader = "26.1.2.109"
