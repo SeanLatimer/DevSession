@@ -5,6 +5,11 @@ plugins {
 
 stonecutter active "1.21.1-neoforge"
 
+stonecutter tasks {
+    order("publishModPublicationToReposiliteRepository")
+    order("publishModPublicationToGitHubPackagesRepository")
+}
+
 stonecutter parameters {
     val (version, loader) = current.project.split('-', limit = 2)
 
