@@ -1,6 +1,6 @@
 mod.id = "devsession"
 mod.name = "DevSession"
-mod.version = "0.1.0"
+mod.version = "0.1.1"
 
 # Mod compatibility range in fabric.mod.json / neoforge.mods.toml
 deps.fabric_loader = "0.19.5"
