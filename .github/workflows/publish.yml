@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      gradle_task:
+        description: "Gradle task(s) to run"
+        default: "publish"
+        type: string
 
 permissions:
   contents: read
@@ -32,7 +37,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - run: ./gradlew --stacktrace publish
+      - run: ./gradlew --stacktrace ${{ inputs.gradle_task || 'publish' }}
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAVEN_URL: ${{ secrets.MAVEN_URL }}
+          MAVEN_USER: ${{ secrets.MAVEN_USER }}
+          MAVEN_PASS: ${{ secrets.MAVEN_PASS }}

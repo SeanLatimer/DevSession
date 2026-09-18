@@ -114,7 +114,7 @@ publishing {
         register<MavenPublication>("mod") {
             artifactId = "${property("mod.id") as String}-fabric"
             artifact(loomx.modJar.flatMap { it.archiveFile })
-            artifact(loomx.modSourcesJar.flatMap { it.archiveFile })
+            artifact(loomx.modSourcesJar.flatMap { it.archiveFile }) { classifier = "sources" }
 
             pom {
                 name = "DevSession (Fabric)"
@@ -137,6 +137,19 @@ publishing {
             credentials {
                 username = System.getenv("GITHUB_ACTOR") ?: (findProperty("gpr.user") as String?)
                 password = System.getenv("GITHUB_TOKEN") ?: (findProperty("gpr.key") as String?)
+            }
+        }
+
+        val personalMaven = System.getenv("MAVEN_URL")?.takeIf { it.isNotBlank() }
+            ?: (findProperty("maven.url") as String?)?.takeIf { it.isNotBlank() }
+        if (personalMaven != null) {
+            maven {
+                name = "Reposilite"
+                url = uri(personalMaven)
+                credentials {
+                    username = System.getenv("MAVEN_USER") ?: (findProperty("maven.user") as String?)
+                    password = System.getenv("MAVEN_PASS") ?: (findProperty("maven.key") as String?)
+                }
             }
         }
     }
